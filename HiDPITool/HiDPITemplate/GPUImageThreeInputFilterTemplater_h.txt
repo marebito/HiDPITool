@@ -1,0 +1,16 @@
+//
+//  {{ ClassName }}.h
+//  GPUImageFilterCodeGenerateTool
+//
+//  Created by zll on 2018/3/14.
+//  Copyright © 2017年 Godlike Studio. All rights reserved.
+//
+
+#import <Foundation/Foundation.h>
+#import <GPUImage/GPUImageThreeInputFilter.h>
+
+@interface {{ ClassName }} : {{ SuperClassName }}
+
+- (id)init{% for p in Param %}With{{ p.key | capitalized }}:({{ p.value }} *){{ p.key }} {% /for %};
+
+@end

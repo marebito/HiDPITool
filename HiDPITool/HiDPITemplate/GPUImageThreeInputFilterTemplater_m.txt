@@ -1,0 +1,88 @@
+//
+//  {{ ClassName }}.m
+//  GPUImageFilterCodeGenerateTool
+//
+//  Created by zll on 2018/3/14.
+//  Copyright © 2017年 Godlike Studio. All rights reserved.
+//
+
+#import "{{ ClassName }}.h"
+
+@implementation {{ ClassName }}
+{
+    {% for p in Param %}
+    {{ p.value }} *_{{ p.key }};
+    {% /for %}
+}
+
+
+- (id)init{% for p in Param %}With{{ p.key | capitalized }}:({{ p.value }} *){{ p.key }} {% /for %}
+{
+    if (nil != (self = [super init]))
+    {
+    {% for p in Param %}
+    _{{ p.key }} = {{ p.key }};
+    {% /for %}
+    }
+    return self;
+}
+
+- (void)newFrameReadyAtTime:(CMTime)frameTime atIndex:(NSInteger)textureIndex
+{
+    [super newFrameReadyAtTime:frameTime atIndex:textureIndex];
+}
+
+- (void)renderToTextureWithVertices:(const GLfloat *)vertices textureCoordinates:(const GLfloat *)textureCoordinates
+{
+    if (self.preventRendering)
+    {
+        [firstInputFramebuffer unlock];
+        return;
+    }
+    [GPUImageContext setActiveShaderProgram:filterProgram];
+
+    outputFramebuffer = [[GPUImageContext sharedFramebufferCache] fetchFramebufferForSize:[self sizeOfFBO]
+    textureOptions:self.outputTextureOptions
+    onlyTexture:NO];
+    [outputFramebuffer activateFramebuffer];
+
+    if (usingNextFrameForImageCapture)
+    {
+        [outputFramebuffer lock];
+    }
+
+    [firstInputFramebuffer unlock];
+
+    if (usingNextFrameForImageCapture)
+    {
+        dispatch_semaphore_signal(imageCaptureSemaphore);
+    }
+
+    [self setUniformsForProgramAtIndex:0];
+}
+
+- (void)setInputSize:(CGSize)newSize atIndex:(NSInteger)textureIndex
+{
+    [super setInputSize:newSize atIndex:textureIndex];
+
+    if (CGSizeEqualToSize(newSize, CGSizeZero))
+    {
+        return;
+    }
+}
+
+- (NSString *)requestUrl
+{
+    return @"{{ Url }}";
+}
+
+- (YTKRequestMethod)requestMethod
+{
+    return {{ MethodType }};
+}
+
+- (id)requestArgument
+{
+    return @{ {% for p in Param %}@"{{ p.key }}": _{{ p.key }}{% if Param.@lastObject.key equalsString p.key %}{% else %}, {% /if %}{% /for %}};
+}
+@end
