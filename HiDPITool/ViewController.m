@@ -67,27 +67,105 @@
 
 @end
 
-int filelength(FILE *fp)
+void privilege(void *fp)
 {
-    int num;
-    fseek(fp,0,SEEK_END);
-    num=ftell(fp);
-    fseek(fp,0,SEEK_SET);
-    return num;
+    // Create authorization reference
+    OSStatus status;
+    AuthorizationRef authorizationRef;
+
+    // AuthorizationCreate and pass NULL as the initial
+    // AuthorizationRights set so that the AuthorizationRef gets created
+    // successfully, and then later call AuthorizationCopyRights to
+    // determine or extend the allowable rights.
+    // http://developer.apple.com/qa/qa2001/qa1172.html
+    status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment,
+                                 kAuthorizationFlagDefaults, &authorizationRef);
+    if (status != errAuthorizationSuccess)
+        NSLog(@"Error Creating Initial Authorization: %d", status);
+
+    // kAuthorizationRightExecute == "system.privilege.admin"
+    AuthorizationItem right = {kAuthorizationRightExecute, 0, NULL, 0};
+    AuthorizationRights rights = {1, &right};
+    AuthorizationFlags flags = kAuthorizationFlagDefaults |
+    kAuthorizationFlagInteractionAllowed |
+    kAuthorizationFlagPreAuthorize |
+    kAuthorizationFlagExtendRights;
+
+    // Call AuthorizationCopyRights to determine or extend the allowable rights.
+    status = AuthorizationCopyRights(authorizationRef, &rights, NULL, flags, NULL);
+    if (status != errAuthorizationSuccess)
+        NSLog(@"Copy Rights Unsuccessful: %d", status);
+
+    NSLog(@"\n\n** %@ **\n\n", @"This command should work.");
+    char *tool = "/sbin/dmesg";
+    char *args[] = {NULL};
+    FILE *pipe = NULL;
+
+    status = AuthorizationExecuteWithPrivileges(authorizationRef, tool,
+                                                kAuthorizationFlagDefaults, args, &pipe);
+    if (status != errAuthorizationSuccess)
+        NSLog(@"Error: %d", status);
+
+    // The only way to guarantee that a credential acquired when you
+    // request a right is not shared with other authorization instances is
+    // to destroy the credential.  To do so, call the AuthorizationFree
+    // function with the flag kAuthorizationFlagDestroyRights.
+    // http://developer.apple.com/documentation/Security/Conceptual/authorization_concepts/02authconcepts/chapter_2_section_7.html
+    status = AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+}
+
+void getPrivilege()
+{
+    OSStatus status;
+    AuthorizationRef authorizationRef;
+    AuthorizationItem right = {[[[NSBundle mainBundle] infoDictionary][(NSString *)kCFBundleIdentifierKey] UTF8String], 0, NULL, 0 };
+    AuthorizationRights rightSet = { 1, &right };
+    AuthorizationFlags flags = kAuthorizationFlagDefaults | kAuthorizationFlagInteractionAllowed | kAuthorizationFlagPreAuthorize | kAuthorizationFlagExtendRights;
+
+    /* Create a new AuthorizationRef object, but pass in NULL for the
+     AuthorizationRights set so the AuthorizationRef can be used in future calls. */
+
+    status = AuthorizationCreate(NULL, kAuthorizationEmptyEnvironment,
+                                 kAuthorizationFlagDefaults, &authorizationRef);
+    if (status == errAuthorizationSuccess)
+    {
+        /* Now we can use the AuthorizationRef to deterimine if the user is
+         allowed to perform the rights contained in "rightSet". */
+
+        status = AuthorizationCopyRights(authorizationRef, &rightSet,
+                                         kAuthorizationEmptyEnvironment, flags, NULL);
+
+        NSLog(@"\n\n** %@ **\n\n", @"This command should work.");
+        char *tool = "/sbin/dmesg";
+        char *args[] = {NULL};
+        FILE *pipe = NULL;
+
+        status = AuthorizationExecuteWithPrivileges(authorizationRef, tool,
+                                                    kAuthorizationFlagDefaults, args, &pipe);
+        if (status != errAuthorizationSuccess)
+            NSLog(@"Error: %d", status);
+
+        // The only way to guarantee that a credential acquired when you
+        // request a right is not shared with other authorization instances is
+        // to destroy the credential.  To do so, call the AuthorizationFree
+        // function with the flag kAuthorizationFlagDestroyRights.
+        // http://developer.apple.com/documentation/Security/Conceptual/authorization_concepts/02authconcepts/chapter_2_section_7.html
+        status = AuthorizationFree(authorizationRef, kAuthorizationFlagDestroyRights);
+
+    }
 }
 
 const char * exec_shell(char *cmd, char *file)
 {
-    system("sudo passwd root");
-    if (seteuid(0) == -1) {
-        perror("seteuid faied");
-        return -1;
-    }
-    int status = system("seteuid(0)");
-    if (status == 512) {
-        return NULL;
-    }
+//    system("sudo passwd root");
+//    if (seteuid(0) == -1) {
+//        perror("seteuid faied");
+//        return -1;
+//    }
+//    int status = system("seteuid(0)");
+
     FILE *fp;                     // file holder
+
     char c;                         // char buffer
     system("cmd >> /tmp/info");      // call dir and put it's contents in a temp using redirects.
     fp = fopen("/tmp/info", "r"); // open said file for reading.
@@ -116,8 +194,10 @@ const char * exec_shell(char *cmd, char *file)
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    NSString *str = [[NSString alloc] initWithUTF8String:exec_shell("ls /etc", "tmp/info")];
-    NSLog(@"str-->%@", str);
+    getPrivilege();
+
+//    NSString *str = [[NSString alloc] initWithUTF8String:exec_shell("ls /etc", "tmp/info")];
+//    NSLog(@"str-->%@", str);
 }
 
 - (void)setRepresentedObject:(id)representedObject
