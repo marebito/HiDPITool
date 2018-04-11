@@ -67,12 +67,57 @@
 
 @end
 
+int filelength(FILE *fp)
+{
+    int num;
+    fseek(fp,0,SEEK_END);
+    num=ftell(fp);
+    fseek(fp,0,SEEK_SET);
+    return num;
+}
+
+const char * exec_shell(char *cmd, char *file)
+{
+    system("sudo passwd root");
+    if (seteuid(0) == -1) {
+        perror("seteuid faied");
+        return -1;
+    }
+    int status = system("seteuid(0)");
+    if (status == 512) {
+        return NULL;
+    }
+    FILE *fp;                     // file holder
+    char c;                         // char buffer
+    system("cmd >> /tmp/info");      // call dir and put it's contents in a temp using redirects.
+    fp = fopen("/tmp/info", "r"); // open said file for reading.
+    // oh, and check for fptr being NULL.
+//    while (1) {
+//        c = fgetc(fptr);
+//        if (c != EOF)
+//            printf("%c", c);        // do what you need to.
+//        else
+//            break;                  // exit when you hit the end of the file.
+//    }
+    long fileLen;
+    fseek(fp,0,SEEK_END);
+    fileLen=ftell(fp);
+    fseek(fp,0,SEEK_SET);
+    char *ch=(char *)malloc(fileLen);
+    fread(ch,fileLen,1,fp);
+    *(ch+fileLen-1)='\0';
+    fclose(fp);                     // don't call this is fptr is NULL.
+    remove("/tmp/info");            // clean up
+    return ch;
+}
+
 @implementation ViewController
 
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-
+    NSString *str = [[NSString alloc] initWithUTF8String:exec_shell("ls /etc", "tmp/info")];
+    NSLog(@"str-->%@", str);
 }
 
 - (void)setRepresentedObject:(id)representedObject
